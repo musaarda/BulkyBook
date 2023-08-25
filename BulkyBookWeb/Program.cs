@@ -1,9 +1,19 @@
 
+using BulkyBookWeb.Data;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Add RazorPages for Hot Reload in VS Code
 builder.Services.AddRazorPages().AddRazorRuntimeCompilation();
+
+// Add Db Context
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(
+    builder.Configuration.GetConnectionString("DefaultConnection")
+));
 
 var app = builder.Build();
 
