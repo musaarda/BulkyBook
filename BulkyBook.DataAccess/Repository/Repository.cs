@@ -24,16 +24,31 @@ public class Repository<T> : IRepository<T> where T : class
         dbSet.Add(entity);
     }
 
-    public IEnumerable<T> GetAll()
+    // includeProp - "Category,CoverType"
+    public IEnumerable<T> GetAll(string? includeProperties = null)
     {
         IQueryable<T> query = dbSet;
+        query = AddIncludeProperties(includeProperties, query);
         return query.ToList();
     }
 
-    public T GetFirstOrDefault(Expression<Func<T, bool>> filter)
+    private static IQueryable<T> AddIncludeProperties(string? includeProperties, IQueryable<T> query)
+    {
+        if (includeProperties != null)
+        {
+            foreach (var includeProp in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                query = query.Include(includeProp);
+            }
+        }
+        return query;
+    }
+
+    public T GetFirstOrDefault(Expression<Func<T, bool>> filter, string? includeProperties = null)
     {
         IQueryable<T> query = dbSet;
         query = query.Where(filter);
+        query = AddIncludeProperties(includeProperties, query);
         return query.FirstOrDefault();
     }
 
