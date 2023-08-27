@@ -47,9 +47,17 @@ public class Repository<T> : IRepository<T> where T : class
         return query;
     }
 
-    public T GetFirstOrDefault(Expression<Func<T, bool>> filter, string? includeProperties = null)
+    public T GetFirstOrDefault(Expression<Func<T, bool>> filter, string? includeProperties = null, bool tracked = true)
     {
-        IQueryable<T> query = dbSet;
+        IQueryable<T> query;
+        if (tracked)
+        {
+            query = dbSet;
+        }
+        else
+        {
+            query = dbSet.AsNoTracking();
+        }
         query = query.Where(filter);
         query = AddIncludeProperties(includeProperties, query);
         return query.FirstOrDefault();

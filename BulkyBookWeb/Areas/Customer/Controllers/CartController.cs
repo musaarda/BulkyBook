@@ -99,18 +99,27 @@ public class CartController : Controller
 
         ShoppingCartVM.ListCart = _unitOfWork.ShoppingCart.GetAll(s => s.ApplicationUserId == userId, includeProperties: "Product");
 
-        ShoppingCartVM.OrderHeader.PaymentStatus = SD.PaymentStatusPending;
-        ShoppingCartVM.OrderHeader.OrderStatus = SD.StatusPending;
         ShoppingCartVM.OrderHeader.OrderDate = System.DateTime.Now;
         ShoppingCartVM.OrderHeader.ApplicationUserId = userId;
 
-        SetOrderTotal();
+        ShoppingCartVM.OrderHeader.PaymentStatus = IsCompanyUser() ? SD.PaymentStatusDelayedPayment : SD.PaymentStatusPending;
+        ShoppingCartVM.OrderHeader.OrderStatus = IsCompanyUser() ? SD.StatusApproved : SD.StatusPending;
 
         SaveOrderHeader();
 
         SaveOrderDetails();
 
-        return StripeCheckout();
+        if (IsCompanyUser())
+            return RedirectToAction("OrderConfirmation", "Cart", new { id = ShoppingCartVM.OrderHeader.Id });
+        else
+            return StripeCheckout();
+    }
+
+    private bool IsCompanyUser()
+    {
+        string userId = GetUserId();
+        ApplicationUser applicationUser = _unitOfWork.ApplicationUser.GetFirstOrDefault(x => x.Id == userId);
+        return applicationUser.CompanyId.GetValueOrDefault() != 0;
     }
 
     private ActionResult StripeCheckout()
@@ -185,13 +194,16 @@ public class CartController : Controller
     public IActionResult OrderConfirmation(int id)
     {
         OrderHeader orderHeader = _unitOfWork.OrderHeader.GetFirstOrDefault(u => u.Id == id);
-        var service = new SessionService();
-        Session session = service.Get(orderHeader.SessionId);
-        // check the stripe status
-        if (session.PaymentStatus.ToLower() == "paid")
+        if (orderHeader.PaymentStatus != SD.PaymentStatusDelayedPayment)
         {
-            _unitOfWork.OrderHeader.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
-            _unitOfWork.Save();
+            var service = new SessionService();
+            Session session = service.Get(orderHeader.SessionId);
+            // check the stripe status
+            if (session.PaymentStatus.ToLower() == "paid")
+            {
+                _unitOfWork.OrderHeader.UpdateStatus(id, SD.StatusApproved, SD.PaymentStatusApproved);
+                _unitOfWork.Save();
+            }
         }
 
         RemoveShoppingCarts(orderHeader);
